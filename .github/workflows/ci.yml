@@ -1,0 +1,59 @@
+name: Aliveland Frontend GitHub Actions
+
+on: pull_request
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Notify Trigger
+        run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event on branch ${{ github.ref }}."
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Read Node.js Version
+        run: |
+          NODE_VERSION=$(cat .nvmrc)
+          echo "::set-output name=NODE_VERSION::$NODE_VERSION"
+          echo "🐢 Node.js version is $NODE_VERSION."
+        id: nvm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ steps.nvm.outputs.NODE_VERSION }}
+
+      - name: Cache Dependencies
+        uses: actions/cache@v3
+        id: frontend-npm-cache
+        with:
+          path: "node_modules"
+          key: ${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Dependencies
+        run: npm install
+        if: steps.frontend-npm-cache.outputs.cache-hit != 'true'
+
+      - name: Run lint
+        uses: reviewdog/action-eslint@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review
+          workdir: .
+          eslint_flags: "src/"
+
+      - name: Run Typecheck
+        run: npm run typecheck
+
+      - name: Run Unit Tests
+        run: npm run test
+
+      - name: Display Job Status
+        run: echo "🍏 This job's status is ${{ job.status }}."
